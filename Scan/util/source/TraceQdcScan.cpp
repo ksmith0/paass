@@ -90,25 +90,7 @@ TraceQdcScanScanner::~TraceQdcScanScanner(){
   * \return True if the command was recognized and false otherwise.
   */
 bool TraceQdcScanScanner::ExtraCommands(const std::string &cmd_, std::vector<std::string> &args_){
-	if(cmd_ == "mycmd1"){ // Handle the command.
-	}
-	else if(cmd_ == "mycmd2"){
-		if(args_.size() >= 1){ // Do something with the argument.
-		}
-		else{ // No argument, do something else.
-		}
-	}
-	else if(cmd_ == "mycmd3"){
-		if(args_.size() >= 1){ // Do something with the single argument.
-		}
-	}
-	else if(cmd_ == "mycmd4"){
-		if(args_.size() >= 2){ // Do something with the two arguments.
-		}
-	}
-	else{ return false; } // Unrecognized command.
-
-	return true;
+	return false;
 }
 
 /** ExtraArguments is used to send command line arguments to classes derived
@@ -125,6 +107,14 @@ void TraceQdcScanScanner::ExtraArguments(){
 	if(userOpts.at(1).active){
 		lowMax = strtoul(userOpts.at(1).argument.c_str(), NULL, 0);
 		std::cout << msgHeader << "Set high side integration limit to " << lowMax << " bins.\n";
+	}
+	if(userOpts.at(2).active){
+		setMod = strtoul(userOpts.at(2).argument.c_str(), NULL, 0);
+		std::cout << msgHeader << "Set module to " << setMod << ".\n";
+	}	
+	if(userOpts.at(3).active){
+		setChan = strtoul(userOpts.at(3).argument.c_str(), NULL, 0);
+		std::cout << msgHeader << "Set channel to " << setChan << ".\n";
 	}
 }
 
@@ -148,8 +138,10 @@ void TraceQdcScanScanner::CmdHelp(const std::string &prefix_/*=""*/){
   * \return Nothing.
   */
 void TraceQdcScanScanner::ArgHelp(){
-	AddOption(optionExt("low", required_argument, NULL, 'L', "<LowLimit>", "Set the furthest bin from the peak maximum on the low side (default 20)."));
-	AddOption(optionExt("high", required_argument, NULL, 'H', "<HighLimit>", "Set the furthest bin from the peak maximum on the high side (default 20)."));
+	AddOption(optionExt("low", required_argument, NULL, 'L', "<lowLimit>", "Set the furthest bin from the peak maximum on the low side (default 20)."));
+	AddOption(optionExt("high", required_argument, NULL, 'H', "<highLimit>", "Set the furthest bin from the peak maximum on the high side (default 20)."));
+	AddOption(optionExt("mod", required_argument, NULL, 'M', "<module>", "Set the pixie module number."));
+	AddOption(optionExt("chan", required_argument, NULL, 'C', "<channel>", "Set the pixie channel number."));
 	
 	// Note that the following single character options are reserved by ScanInterface
 	//  b, h, i, o, q, s, and v
