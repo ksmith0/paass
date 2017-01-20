@@ -6,6 +6,9 @@
 #include "Unpacker.hpp"
 #include "ScanInterface.hpp"
 
+class TFile;
+class TTree;
+
 ///////////////////////////////////////////////////////////////////////////////
 // class TraceQdcScanUnpacker
 ///////////////////////////////////////////////////////////////////////////////
@@ -138,6 +141,19 @@ class TraceQdcScanScanner : public ScanInterface {
 
   private:
 	bool init; /// Set to true when the initialization process successfully completes.
+
+	unsigned int mult; /// Multipilicity of channel.
+	unsigned int setMod;
+	unsigned int setChan;
+
+	size_t lowMax;
+	size_t highMax;
+
+	//float **traceQDC;
+	float traceQDC[20][40];
+
+	TFile *outFile;
+	TTree *outTree;
 };
 
 #endif

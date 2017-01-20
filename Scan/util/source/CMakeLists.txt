@@ -12,7 +12,7 @@ if(USE_ROOT)
 	endif (BUILD_SCOPE)
 
 	add_executable(traceQdcScan TraceQdcScan.cpp)
-   target_link_libraries(traceQdcScan ScanStatic)
+	target_link_libraries(traceQdcScan ScanStatic ${ROOT_LIBRARIES})
 	install(TARGETS traceQdcScan DESTINATION bin)
 endif(USE_ROOT)
 

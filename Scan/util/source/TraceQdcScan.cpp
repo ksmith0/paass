@@ -3,7 +3,11 @@
 #include <getopt.h>
 #include <cstring>
 
+#include "TFile.h"
+#include "TTree.h"
+
 #include "XiaData.hpp"
+#include "ChannelEvent.hpp"
 
 // Local files
 #include "TraceQdcScan.hpp"
@@ -59,14 +63,22 @@ void TraceQdcScanUnpacker::ProcessRawEvent(ScanInterface *addr_/*=NULL*/){
 ///////////////////////////////////////////////////////////////////////////////
 
 /// Default constructor.
-TraceQdcScanScanner::TraceQdcScanScanner() : ScanInterface() {
-	init = false;
+TraceQdcScanScanner::TraceQdcScanScanner() : ScanInterface(), init(false), mult(0), setMod(0), setChan(0), lowMax(20), highMax(40), outFile(NULL), outTree(NULL) {
 }
 
 /// Destructor.
 TraceQdcScanScanner::~TraceQdcScanScanner(){
 	if(init){
-		// Handle some cleanup.
+		outFile->cd();
+		outTree->Write();
+		outFile->Close();
+	
+		delete outFile;
+
+		/*for(size_t i = 0; i < lowMax; i++){
+			delete[] traceQDC[i];
+		}
+		delete[] traceQDC;*/
 	}
 }
 
@@ -106,14 +118,14 @@ bool TraceQdcScanScanner::ExtraCommands(const std::string &cmd_, std::vector<std
   * \return Nothing.
   */
 void TraceQdcScanScanner::ExtraArguments(){
-	if(userOpts.at(0).active)
-		std::cout << msgHeader << "Using option --myarg1 (-x).\n";
-	if(userOpts.at(1).active)
-		std::cout << msgHeader << "Using option --myarg2 (-y): arg=\"" << userOpts.at(1).argument << "\"\n";
-	if(userOpts.at(2).active)
-		std::cout << msgHeader << "Using option --myarg3 (-z): arg=\"" << userOpts.at(2).argument << "\"\n";
-	if(userOpts.at(3).active)
-		std::cout << msgHeader << "Using option --myarg4.\n";
+	if(userOpts.at(0).active){
+		lowMax = strtoul(userOpts.at(0).argument.c_str(), NULL, 0);
+		std::cout << msgHeader << "Set low side integration limit to " << lowMax << " bins.\n";
+	}
+	if(userOpts.at(1).active){
+		lowMax = strtoul(userOpts.at(1).argument.c_str(), NULL, 0);
+		std::cout << msgHeader << "Set high side integration limit to " << lowMax << " bins.\n";
+	}
 }
 
 /** CmdHelp is used to allow a derived class to print a help statement about
@@ -136,10 +148,8 @@ void TraceQdcScanScanner::CmdHelp(const std::string &prefix_/*=""*/){
   * \return Nothing.
   */
 void TraceQdcScanScanner::ArgHelp(){
-	AddOption(optionExt("myarg1", no_argument, NULL, 'x', "", "A useful command line argument."));
-	AddOption(optionExt("myarg2", required_argument, NULL, 'y', "<arg>", "A useful command line argument with a required argument."));
-	AddOption(optionExt("myarg3", optional_argument, NULL, 'z', "[arg]", "A useful command line argument with an optional argument."));
-	AddOption(optionExt("myarg4", no_argument, NULL, 0, "", "A long only command line argument."));
+	AddOption(optionExt("low", required_argument, NULL, 'L', "<LowLimit>", "Set the furthest bin from the peak maximum on the low side (default 20)."));
+	AddOption(optionExt("high", required_argument, NULL, 'H', "<HighLimit>", "Set the furthest bin from the peak maximum on the high side (default 20)."));
 	
 	// Note that the following single character options are reserved by ScanInterface
 	//  b, h, i, o, q, s, and v
@@ -161,7 +171,29 @@ void TraceQdcScanScanner::SyntaxStr(char *name_){
 bool TraceQdcScanScanner::Initialize(std::string prefix_){
 	if(init){ return false; }
 
-	// Do some initialization.
+	std::string fname = this->GetOutputFilename();
+	if(fname.empty()){
+		std::cout << msgHeader << "Warning! No output filename specified. Using \"traceQdcScan.root\".\n";
+		fname = "traceQdcScan.root";
+	}
+
+	// Setup the output root file.
+	outFile = new TFile(fname.c_str(), "RECREATE");
+
+	if(!outFile || !outFile->IsOpen()){
+		std::cout << msgHeader << "Error! Failed to open output root file \"" << fname << "\".\n";
+		return false;	
+	}
+
+	// Initialize the TTree.
+	outTree = new TTree("data", "QDC scanner tree");
+	outTree->Branch("traceQDC[20][40]", traceQDC, "traceQDC[20][40]/f");
+
+	// Initialize the QDC array.
+	/*traceQDC = new float*[lowMax];
+	for(size_t i = 0; i < lowMax; i++){
+		traceQDC[i] = new float[highMax];	
+	}*/
 
 	return (init = true);
 }
@@ -203,22 +235,36 @@ Unpacker *TraceQdcScanScanner::GetCore(){
 bool TraceQdcScanScanner::AddEvent(XiaData *event_){
 	if(!event_){ return false; }
 
-	int mod = event_->GetModuleNumber();
-	int chan = event_->GetChannelNumber();
-	mult[mod][chan]++;
+	unsigned int mod = event_->GetModuleNumber();
+	unsigned int chan = event_->GetChannelNumber();
 
-	ChannelEvent *chEvent == new ChannelEvent(event_);
+	// Check if this is the correct channel.
+	if(mod == setMod && chan == setChan){ // Handle the individual XiaData.
+		mult++;
 
-	chEvent->CorrectBaseline();
-	for (int i=0;i<20;i++) {
-		for (int j=0;j<40;j++) {
-			traceQdc[mod][chan][][] = chEvent->IntegratePulse(chEvent->max_index - i, chEvent->max_index + j);	
+		ChannelEvent *chEvent = new ChannelEvent(event_);
+
+		/*for (size_t i = 0; i < lowMax; i++) {
+			for (size_t j = 0; j < highMax; j++) {
+				traceQDC[i][j] = chEvent->IntegratePulse(chEvent->max_index - i, chEvent->max_index + j);	
+			}
+		}*/
+
+		for (size_t i = 0; i < 20; i++) {
+			for (size_t j = 0; j < 40; j++) {
+				traceQDC[i][j] = chEvent->IntegratePulse(chEvent->max_index - i, chEvent->max_index + j);	
+			}
 		}
-	}
 
-	// Handle the individual XiaData. Maybe add it to a detector's event list or something.
-	// Do nothing with it for now.
-	delete event_;
+		// Fill the TTree.
+		outTree->Fill();
+
+		// We're done with the event now.
+		delete chEvent;
+	}
+	else{ // Do nothing with the event.
+		delete event_;
+	}
 	
 	return false;
 }
